@@ -259,8 +259,11 @@ static void mihawk_setup_phb(struct phb *phb, unsigned int __unused index)
 {
 	struct phb4 *p = phb_to_phb4(phb);
 
-	if (p->pec == 2)
+	if (p->pec == 2) {
 		phb4_set_dt_max_link_speed(p, 3);
+		prlog(PR_DEBUG, "Mihawk: Force the PEC2 Speed to Gen3 ONLY    "
+                                "(chip_id=%d, pec=%d)\n", p->chip_id, p->pec);
+	}
 }
 
 static void mihawk_pci_probe_complete(void)
@@ -277,11 +280,19 @@ static void mihawk_pci_probe_complete(void)
 		pd = pci_find_dev(phb, 0x0100);
 		if (!pd)
 			continue;
-		if (pd->vdid != 0x405211f8)
+
+		/* If we find a Microsemi Gen4 Switch vdid=0x405211f8 or
+	           vdid=0x140011f8, which means it's the riser with Gen4 switch
+		   installed and the max speed should change from Gen3 to Gen4.
+		 */
+		if ((pd->vdid != 0x405211f8) && (pd->vdid != 0x140011f8))
 			continue;
 
 		PCIERR(&p->phb, 0, "restoring to gen4\n");
 		phb4_set_dt_max_link_speed(p, 4);
+		prlog(PR_DEBUG, "Mihawk: Detect Riser-F and Restore to Gen4   "
+				"(chip_id=%d, pec=%d, device=%08x)\n",
+				p->chip_id, p->pec, pd->vdid);
 	}
 
 	check_all_slot_table();
